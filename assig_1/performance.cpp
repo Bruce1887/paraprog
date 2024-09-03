@@ -5,7 +5,7 @@
 const int iterations = 100;
 
 void loop(char *data, int size)
-{
+{  
   for (int i=0; i<iterations; ++i)
     {
       for (int j=0; j<size; ++j)
