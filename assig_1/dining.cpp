@@ -41,8 +41,9 @@ void philosopher(int n, std::mutex *left, std::mutex *right)
         }
       }
       else if (right->try_lock()){
-        right->unlock();
+        right->unlock();        
       }                  
+    std::this_thread::yield(); // does not work as i want it to :(
     }
 }
 
