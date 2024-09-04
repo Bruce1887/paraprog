@@ -9,7 +9,7 @@ One thing we noticed was that very often the print thread would get to "execute"
 This is a classic example of a data race where two or more threads both want access to the same data, causing unpredictable behaviour and produces output that is dependent on how the OS chooses to schedule the threads and thus non deterministic.
 
 # Excercise 3
-In program "shared-variable" we almost have data race. Here we have a shared variable X between each thread. This variable is accessed by at least by two threads at the same time where atleased one is a write operation. However, as the writes are withing mutex locks the data is not accessed  Depending on our hardware a data race could lead to us printing a different value. There is also race conditions in the program, which thread that is executed is decided by the OS and depending on which thread is executed first the output may differ.
+In program "shared-variable" we almost have data race. Here we have a shared variable X between each thread. This variable is accessed by at least by two threads at the same time where atleased one is a write operation. However, as the writes are withing mutex locks the data is not accessed at the same time preventing data races. However there are race conditions in the program, in that which thread that is executed is decided by the OS and depending on which thread is executed first the output may differ.
 
 In program "non-determinism" we dont have any shared resources (apart from like the stdout if that is to be considered a resource but i doubt it). There are no data races in this program as a requirement for data races is to have multiple threads accessing the same data and one of these accesses being a write, which isnt the case in this program.
 However race conditions are prevalent as in what order the threads write to stdout is very much dependent on how the operating system decides to schedule the threads.
@@ -35,7 +35,7 @@ threads per core is 2.
 # Excercise 5
 **TODO: add the picture here once it is done.**
 
-**a**
+<span style="font-size: 24px;">**a**</span>
 
 | Num threads | Array size (MB) | wall time (seconds)|
 | -------- | ------- | ------- |
@@ -76,9 +76,9 @@ threads per core is 2.
 | 32 | 16 | 0.746166 |
 | 32 | 32 | 1.36948 |
 
-**b**
+<span style="font-size: 24px;">**b**</span>
 
-**c**
+<span style="font-size: 24px;">**c**</span>
 
 The measurements from the table above show that for a small number of threads *T*, the execution time (wall time) approximately gets cut in half as the number of threads double. However, this is only the case for small *T*, as the execution time increases when going from 100 threads to 1000 threads. This is likely due to the overhead induced by thread creation and termination, as well as many threads being created without sufficient data to work on for them to serve a beneficial purpose and only causing the OS to spend extra time on creating and terminating them. 
 If we apply Amdahl's law on the measurements for small *T* <= 8, a reasonable deduction would be the program is approximately 100% parallelizable.
