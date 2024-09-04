@@ -78,9 +78,21 @@ threads per core is 2.
 
 <span style="font-size: 24px;">**b**</span>
 
+**TODO: Mata in bild här**
+
 <span style="font-size: 24px;">**c**</span>
 
-The measurements from the table above show that for a small number of threads *T*, the execution time (wall time) approximately gets cut in half as the number of threads double. However, this is only the case for small *T*, as the execution time increases when going from 100 threads to 1000 threads. This is likely due to the overhead induced by thread creation and termination, as well as many threads being created without sufficient data to work on for them to serve a beneficial purpose and only causing the OS to spend extra time on creating and terminating them. 
-If we apply Amdahl's law on the measurements for small *T* <= 8, a reasonable deduction would be the program is approximately 100% parallelizable.
-1
-Furthermore, for *T* > 8 we can derive from the table that 
+The measurements from the table above show that when doubling the amount of threads, the execution time (wall time) approximately gets cut in half. 
+However, this was not the case for when going from 16 to 32 threads, where the execution time decreased but not by 50% but decreased less. According to Amdahl's law it is also not possible to infinetly speedup a program by just using more processors, as there is a limit to how much of a program is parallelizable. Insted if we want the program to run faster more of the code needs to be parallelizable before we increaste the amount of threads. For this program it seems that the speed up is decrementing after 16 threads.
+
+
+# Excercise 6
+
+<span style="font-size: 24px;">**a**</span>
+
+
+// g++ -std=c++11 -Wall -fsanitize=thread -g -pthread dining.cpp -o dining 
+It appears that deadlocks occur eventually no matter the amount of philosophers that are dining.
+This is occurs when all philosophers are waiting for their right fork to be vacant and are holding their left fork (i think), meaning that everone is waiting for the philosopher to their right to drop their fork. A deadlock occurs four conditions are necessary: mutual exclusion, resource holding, non-preemption and circular wait. Inorder to brake a deadlock one of these conditions must be negated.
+
+<span style="font-size: 24px;">**b**</span>
