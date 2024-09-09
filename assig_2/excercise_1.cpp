@@ -1,5 +1,20 @@
 #include <iostream>
 #include <pthread.h>
+#include <chrono>
+
+double **trapezoids_xs;
+
+int current_trapezoid = 0;
+pthread_mutex_t current_lock = PTHREAD_MUTEX_INITIALIZER;
+
+double area_sum = 0;
+pthread_mutex_t area_sum_lock = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_mutex_t out_lock = PTHREAD_MUTEX_INITIALIZER;
+
+// only read these variables
+int num_threads;
+int num_trapezoids;
 
 void usage(char *program)
 {
@@ -7,67 +22,120 @@ void usage(char *program)
   exit(1);
 }
 
-double inner_function(double x) {
-    return 4 / (1+x*x);
+double inner_function(double x)
+{
+  return 4 / (1 + x * x);
 }
 
 // calculate the area of a trapezoid
-double calc_trap_area(double x1, double x2) {
-    // TODO: Is this the proper area calculation? Verify!
-    return (inner_function(x1) + inner_function(x2)) / 2 * (x2 - x1);
+double calc_trap_area(double x1, double x2)
+{
+  // TODO: Is this the proper area calculation? Verify!
+  return (inner_function(x1) + inner_function(x2)) / 2 * (x2 - x1);
 }
 
-int main(int argc,char* argv[]) {
-    if (argc == 2)
-    {
-        if(std::string(argv[1]) == "-h") // this was a requirement. kind of uneccesary since the usage function is called whenever input is wrong
-        {
-            usage(argv[0]);
-        }
-    }
+void *thread_fn(void *)
+{
+  while (true)
+  {
+    int idx = current_trapezoid;
+    // pthread_mutex_lock(&out_lock);
+    // std::cout << "idx: " << idx << std::endl;
+    // pthread_mutex_unlock(&out_lock);
 
-    if (argc != 3)
+    pthread_mutex_lock(&current_lock);
+    if (idx >= num_trapezoids)
+    {
+      pthread_mutex_unlock(&current_lock);
+      return nullptr;
+    }
+    current_trapezoid++;
+    pthread_mutex_unlock(&current_lock);
+
+    double *trapezoid = trapezoids_xs[idx];
+    double area = calc_trap_area(trapezoid[0], trapezoid[1]);
+
+    pthread_mutex_lock(&area_sum_lock);
+    area_sum += area;
+    pthread_mutex_unlock(&area_sum_lock);
+  }
+}
+
+int main(int argc, char *argv[])
+{
+  if (argc == 2)
+  {
+    if (std::string(argv[1]) == "-h") // this was a requirement. kind of uneccesary since the usage function is called whenever input is wrong
     {
       usage(argv[0]);
     }
+  }
 
-    int num_threads = atoi(argv[1]);
-    int num_trapezoids = atoi(argv[2]);
+  if (argc != 3)
+  {
+    usage(argv[0]);
+  }
 
-    if (num_threads <= 0 || num_trapezoids <= 0)
-    {
-      usage(argv[0]);
-    }
-    // now all input checks are done and we can start the actual program
-    
-    std::cout << "Number of threads: " << num_threads << std::endl;
-    std::cout << "Number of trapezoids: " << num_trapezoids << std::endl;
- 
-    
-    // define trapezoids (only their width i.e. the x values)
-    double trapezoid_width = (double) 1 / num_trapezoids;
-    double** trapezoids_xs = new double*[num_trapezoids];
-    for (int i = 0; i < num_trapezoids; i++) {
-        trapezoids_xs[i] = new double[2];
-    }
-    for (int i = 0; i < num_trapezoids; i++) {
-        trapezoids_xs[i][0] = trapezoid_width * i;
-        trapezoids_xs[i][1] = trapezoid_width * (i+1);
-        std::cout << "Trapezoid " << i << ": " << trapezoids_xs[i][0] << " - " << trapezoids_xs[i][1] << std::endl;
-    }
+  // this should be the only writes to these variables
+  num_threads = atoi(argv[1]);
+  num_trapezoids = atoi(argv[2]);
 
-    double area_sum = 0;
-    for (int i = 0; i < num_trapezoids; i++) {
-        area_sum += calc_trap_area(trapezoids_xs[i][0], trapezoids_xs[i][1]);
-    }
-    std::cout << "Area: " << area_sum << std::endl;
+  if (num_threads <= 0 || num_trapezoids <= 0)
+  {
+    usage(argv[0]);
+  }
+  // now all input checks are done and we can start the actual program
 
-    //cleanup
-    for (int i = 0; i < num_trapezoids; i++) {
-        delete[] trapezoids_xs[i];
-    }
-    delete[] trapezoids_xs;
+  std::cout << "Number of threads: " << num_threads << std::endl;
+  std::cout << "Number of trapezoids: " << num_trapezoids << std::endl;
 
-    return 0;
+  // define trapezoids (only their width i.e. the x values)
+  double trapezoid_width = (double)1 / num_trapezoids;
+
+  // this is the only write to trapexoids_xs
+  trapezoids_xs = new double *[num_trapezoids];
+
+  for (int i = 0; i < num_trapezoids; i++)
+  {
+    trapezoids_xs[i] = new double[2];
+  }
+  for (int i = 0; i < num_trapezoids; i++)
+  {
+    trapezoids_xs[i][0] = trapezoid_width * i;
+    trapezoids_xs[i][1] = trapezoid_width * (i + 1);
+    // std::cout << "Trapezoid " << i << ": " << trapezoids_xs[i][0] << " - " << trapezoids_xs[i][1] << std::endl;
+  }
+
+  pthread_t threads[num_threads];
+
+  // *** timing begins here *** 
+  auto start_time = std::chrono::system_clock::now();
+
+  // create threads
+  for (int i = 0; i < num_threads; i++)
+  {
+    pthread_create(&threads[i], NULL, thread_fn, NULL);
+  }
+
+  // wait for all threads to finish
+  for (int i = 0; i < num_threads; i++)
+  {
+    std::cout << "Joining thread " << i << std::endl;
+    pthread_join(threads[i], NULL);
+  }
+
+  // cleanup
+  for (int i = 0; i < num_trapezoids; i++)
+  {
+    delete[] trapezoids_xs[i];
+  }
+  delete[] trapezoids_xs;
+
+  std::chrono::duration<double> duration =
+    (std::chrono::system_clock::now() - start_time);
+  // *** timing ends here ***
+  std::cout << "Finished in " << duration.count() << " seconds (wall clock)." << std::endl;
+
+  std::cout << "Area: " << area_sum << std::endl;
+  return 0;
 }
-
