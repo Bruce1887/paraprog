@@ -37,6 +37,9 @@ void philosopher(int n, std::mutex *left, std::mutex *right)
           left->unlock();
         }
         else {
+          out.lock();
+          std::cout << "Philosopher " << n << " ONLY GOT ONE FORK !!!!!!!!!!!!!!!!!!!!!!!!!!!!." << std::endl;
+          out.unlock();
           left->unlock();
         }
       }
