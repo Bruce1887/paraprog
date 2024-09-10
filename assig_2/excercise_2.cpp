@@ -6,12 +6,12 @@ int max;
 void SiveOfEratosthenes(int max){
 
     //start with assuming every number is a prime
-    bool is_prime[max + 1]; // index of the prime number so needs to be of size n +1
-    for (int i = 0; i <= max+1; i++){
+    bool is_prime[max]; // index of the prime number so needs to be of size n +1
+    for (int i = 0; i < max; i++){
         is_prime[i] = true;
     }
 
-    for (int k = 2; k * k <= max; k++) {
+    for (int k = 2; k * k < max; k++) {
         //if a numer is a prime every multiple of that number is set to false
             if (is_prime[k] == true) {
                 for (int i = k * k; i <= max; i += k)
@@ -19,7 +19,7 @@ void SiveOfEratosthenes(int max){
             }
         }
     
-    for (int p = 2; p <= max; p++){
+    for (int p = 2; p < max; p++){
         if (is_prime[p])
         {
             std::cout << p << std::endl;
