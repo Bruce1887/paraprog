@@ -32,10 +32,12 @@ void SequencialSive(int *numbers, int len)
         if (numbers[0] == 0)
         {
             is_prime[0] = MARKED;
+            markers[0] = MARKED;
         }
         if (numbers[1] == 1)
         {
             is_prime[1] = MARKED;
+            markers[1] = MARKED;
         }
     }
 
@@ -46,6 +48,7 @@ void SequencialSive(int *numbers, int len)
             for (int i = k * k; i <= len; i += k)
             {
                 is_prime[i] = MARKED;
+                markers[i] = MARKED;
             }
         }
     }
@@ -137,13 +140,13 @@ int main(int argc, char *argv[])
 
     SequencialSive(numbers, sqrt_max + 1);
 
-    // int prime_idx = 0;
-    // while (primes_to_check[prime_idx] != 0)
-    // {
-    //     std::cout << primes_to_check[prime_idx] << ",";
-    //     prime_idx++;
-    // }
-    // std::cout << std::endl;
+    int prime_idx = 0;
+    while (primes_to_check[prime_idx] != 0)
+    {
+        std::cout << primes_to_check[prime_idx] << ",";
+        prime_idx++;
+    }
+    std::cout << std::endl;
     std::cout << "First primes fetched!" << std::endl;
 
     pthread_t threads[num_threads];
@@ -180,12 +183,12 @@ int main(int argc, char *argv[])
     // *** timing ends here ***
     std::cout << "Finished in " << duration.count() << " seconds (wall clock)." << std::endl;
     
-    // std::cout << "Primes: ";
-    // for (int i = 1; i < max; i++) {
-    //     if (markers[i] == UNMARKED) {
-    //         std::cout << numbers[i] << " ";
-    //     }
-    // }
+    std::cout << "Primes: ";
+    for (int i = 1; i < max; i++) {
+        if (markers[i] == UNMARKED) {
+            std::cout << numbers[i] << " ";
+        }
+    }
     std::cout << std::endl;
     // cleanup
     delete[] numbers;
