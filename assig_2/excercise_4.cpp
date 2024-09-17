@@ -81,7 +81,7 @@ void initialise_list(int option, list_superclass<int> *&l, char *argv[])
         l = new cg_tatas_sorted_list<int>;
         break;
     case 4:
-        std::cout << "Not implemented yet" << std::endl;
+        l = new fg_tatas_sorted_list<int>;
         break;
     case 5:
         std::cout << "Not implemented yet" << std::endl;
