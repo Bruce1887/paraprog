@@ -78,7 +78,7 @@ void initialise_list(int option, list_superclass<int> *&l, char *argv[])
         l = new fg_mutex_sorted_list<int>;
         break;
     case 3:
-        std::cout << "Not implemented yet" << std::endl;
+        l = new cg_tatas_sorted_list<int>;
         break;
     case 4:
         std::cout << "Not implemented yet" << std::endl;
