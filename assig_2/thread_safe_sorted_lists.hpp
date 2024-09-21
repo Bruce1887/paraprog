@@ -8,27 +8,33 @@
 #include <mutex>
 #include <atomic>
 
-class TATASLock {
+class TATASLock
+{
 private:
-    std::atomic<bool> locked{false};  // Initially unlocked
+	std::atomic<bool> locked{false}; // Initially unlocked
 
 public:
-    void lock() {
-        while (true) {
-            //Wait until lock looks free
-            while (locked.load()) {
-                //Spin here until it might become unlocked
-            }
-            //try to take the lock
-            if (!locked.exchange(true)) {
-                break;  // Lock acquired successfully
-            }
-        }
-    }
+	void lock()
+	{
+		while (true)
+		{
+			// Wait until lock looks free
+			while (locked.load())
+			{
+				// Spin here until it might become unlocked
+			}
+			// try to take the lock
+			if (!locked.exchange(true))
+			{
+				break; // Lock acquired successfully
+			}
+		}
+	}
 
-    void unlock() {
-        locked.store(false); //Unlock the lock
-    }
+	void unlock()
+	{
+		locked.store(false); // Unlock the lock
+	}
 };
 
 template <typename T>
@@ -167,7 +173,6 @@ private:
 	node<T> *first = nullptr;
 };
 
-
 // TODO: Auctually lock the locks in the nodes. It should be as easy as to just add the lock whenever you acces a mutex kinda
 template <typename T>
 class fg_mutex_sorted_list : public list_superclass<T>
@@ -185,32 +190,40 @@ public:
 			remove(first->value);
 		}
 	}
-		void insert(T v)
+	void insert(T v)
 	{
-		//idea: you go in a kind of "hand in hand" way, so first lock the first node, lock the next and move on, and unlock the previous and so on.
+		// idea: you go in a kind of "hand in hand" way, so first lock the first node, lock the next and move on, and unlock the previous and so on.
+
+		first_lock.lock(); // lock the entry point
 
 		/* first find position */
 		node_mutex<T> *pred = nullptr;
 		node_mutex<T> *succ = first;
 
-		if (succ != nullptr){
-			succ->mutex.lock(); //lock the first node
+		if (succ != nullptr)
+		{
+			succ->mutex.lock(); // lock the first node
 		}
 
 		while (succ != nullptr && succ->value < v)
 		{
+			// std::cout << pred << " " << succ << std::endl;
 			if (pred != nullptr)
 			{
-				pred->mutex.unlock(); //unlock previous node
+				pred->mutex.unlock(); // unlock previous node
+			}
+			else
+			{
+				first_lock.unlock(); // unlock the entry point
 			}
 
-			pred = succ; //move along
-            succ = succ->next;
+			pred = succ; // move along
+			succ = succ->next;
 
 			if (succ != nullptr)
-            {
-                succ->mutex.lock(); // Lock the next node.
-            }
+			{
+				succ->mutex.lock(); // Lock the next node.
+			}
 		}
 
 		/* construct new node */
@@ -221,99 +234,166 @@ public:
 		if (pred == nullptr)
 		{
 			first = current;
+			first_lock.unlock();
 		}
 		else
 		{
 			pred->next = current;
 		}
-		if (succ != nullptr) //when we have inserted our current we need to unlock prev and succ
-        {
-            succ->mutex.unlock();
-        }
-        if (pred != nullptr)
-        {
-            pred->mutex.unlock();
-        }
+		if (succ != nullptr) // when we have inserted our current we need to unlock prev and succ
+		{
+			succ->mutex.unlock();
+		}
+		if (pred != nullptr)
+		{
+			pred->mutex.unlock();
+		}
 	}
 
 	void remove(T v)
-    {
-        node_mutex<T> *pred = nullptr;
-        node_mutex<T> *current = first;
+	{
+		first_lock.lock(); // lock the entry point
 
-        if (current != nullptr) {
-            current->mutex.lock(); // Lock the first node.
-        }
+		node_mutex<T> *pred = nullptr;
+		node_mutex<T> *current = first;
 
-        while (current != nullptr && current->value < v) // iterate the same as in the insert way
-        {
-            if (pred != nullptr)
-            {
-                pred->mutex.unlock(); 
-            }
+		if (current != nullptr)
+		{
+			current->mutex.lock(); // Lock the first node.
+		}
 
-            pred = current;
-            current = current->next;
+		while (current != nullptr && current->value < v) // iterate the same as in the insert way
+		{
+			if (pred != nullptr)
+			{
+				pred->mutex.unlock();
+			}
+			else
+			{
+				first_lock.unlock(); // unlock the entry point
+			}
 
-            if (current != nullptr)
-            {
-                current->mutex.lock();
-            }
-        }
+			pred = current;
+			current = current->next;
 
-        if (current == nullptr || current->value != v)
-        {
-            if (current != nullptr)
-            {
-                current->mutex.unlock();
-            }
-            if (pred != nullptr)
-            {
-                pred->mutex.unlock();
-            }
-            return; // v not found
-        }
+			if (current != nullptr)
+			{
+				current->mutex.lock();
+			}
+		}
 
-        if (pred == nullptr)
-        {
-            first = current->next;
-        }
-        else
-        {
-            pred->next = current->next;
-        }
+		if (current == nullptr || current->value != v)
+		{
+			if (pred != nullptr)
+			{
+				pred->mutex.unlock();
+			}
+			first_lock.unlock();
+			return; // v not found
+		}
 
-        current->mutex.unlock();
-        delete current;
+		if (pred == nullptr)
+		{
+			first = current->next;
+			first_lock.unlock();
+		}
+		else
+		{
+			pred->next = current->next;
+		}
 
-        if (pred != nullptr)
-        {
-            pred->mutex.unlock();
-        }
-    }
+		current->mutex.unlock();
+		delete current;
+		current = nullptr;
+
+		if (pred != nullptr)
+		{
+			pred->mutex.unlock();
+		}
+	}
 	/* count elements with value v in the list */
 	std::size_t count(T v)
 	{
-		std::size_t cnt = 0;
-		/* first go to value v */
+		std::cout << "counting" << std::endl;
+		std::cout << "locking first_lock" << std::endl;
+		first_lock.lock(); //lock the entry point
+
+		node_mutex<T> *prev = nullptr;
 		node_mutex<T> *current = first;
+
+		if (current != nullptr) {
+			current->mutex.lock(); //lock the first node
+		}
+
 		while (current != nullptr && current->value < v)
 		{
+			if (prev != nullptr)
+			{
+				prev->mutex.unlock(); //unlock the previous node
+			}
+			else {
+				std::cout << "unlocking first_lock" << std::endl;
+				first_lock.unlock(); //unlock the entry point
+			}
+			prev = current;
 			current = current->next;
+			if (current != nullptr)
+			{
+				std::cout << "locking current with value " << current->value << std::endl;
+				current->mutex.lock(); //lock the next node
+				std::cout << "current with value " << current->value << " is locked" << std::endl;
+			}
 		}
-		/* count elements */
-		while (current != nullptr && current->value == v)
-		{
+		std::cout << "after first while-loop" << std::endl;
+
+		if (current == nullptr || current->value != v) {
+			if (prev != nullptr) // should be uneccessary
+			{
+				prev->mutex.unlock();
+			}
+			std::cout << "did not find value " << v << " when counting!" << std::endl;
+			std::cout << "unlocking first_lock" << std::endl;
+			first_lock.unlock();
+			return 0;
+		}
+
+		std::size_t cnt = 0;
+		std::cout << "found value " << v << " when counting!" << std::endl;
+		std::cout << "current->value " << current->value << std::endl;
+		while (current != nullptr && current->value == v) {
+			if (prev != nullptr)
+			{
+				prev->mutex.unlock(); //unlock the previous node
+			}
+			else {
+				std::cout << "unlocking first_lock" << std::endl;
+				first_lock.unlock(); //unlock the entry point
+			}
 			cnt++;
+
+			prev = current;
 			current = current->next;
+			if (current != nullptr)
+			{
+				current->mutex.lock(); //lock the next node
+			}
 		}
+
+
+		if (prev != nullptr)
+		{
+			std::cout << "unlocking previous with value " << prev->value << std::endl;
+			prev->mutex.unlock();
+			std::cout << "previous with value " << prev->value << " unlocked" << std::endl;
+		}
+
 		return cnt;
 	}
 
 private:
 	node_mutex<T> *first = nullptr;
+	std::mutex first_lock;
 };
-
 
 template <typename T>
 class cg_tatas_sorted_list : public list_superclass<T>
@@ -435,32 +515,33 @@ public:
 			remove(first->value);
 		}
 	}
-		void insert(T v)
+	void insert(T v)
 	{
-		//idea: you go in a kind of "hand in hand" way, so first lock the first node, lock the next and move on, and unlock the previous and so on.
+		// idea: you go in a kind of "hand in hand" way, so first lock the first node, lock the next and move on, and unlock the previous and so on.
 
 		/* first find position */
 		node_tatas<T> *pred = nullptr;
 		node_tatas<T> *succ = first;
 
-		if (succ != nullptr){
-			succ->tatas_lock.lock(); //lock the first node
+		if (succ != nullptr)
+		{
+			succ->tatas_lock.lock(); // lock the first node
 		}
 
 		while (succ != nullptr && succ->value < v)
 		{
 			if (pred != nullptr)
 			{
-				pred->tatas_lock.unlock(); //unlock previous node
+				pred->tatas_lock.unlock(); // unlock previous node
 			}
 
-			pred = succ; //move along
-            succ = succ->next;
+			pred = succ; // move along
+			succ = succ->next;
 
 			if (succ != nullptr)
-            {
-                succ->tatas_lock.lock(); // Lock the next node.
-            }
+			{
+				succ->tatas_lock.lock(); // Lock the next node.
+			}
 		}
 
 		/* construct new node */
@@ -476,71 +557,72 @@ public:
 		{
 			pred->next = current;
 		}
-		if (succ != nullptr) //when we have inserted our current we need to unlock prev and succ
-        {
-            succ->tatas_lock.unlock();
-        }
-        if (pred != nullptr)
-        {
-            pred->tatas_lock.unlock();
-        }
+		if (succ != nullptr) // when we have inserted our current we need to unlock prev and succ
+		{
+			succ->tatas_lock.unlock();
+		}
+		if (pred != nullptr)
+		{
+			pred->tatas_lock.unlock();
+		}
 	}
 
 	void remove(T v)
-    {
-        node_tatas<T> *pred = nullptr;
-        node_tatas<T> *current = first;
+	{
+		node_tatas<T> *pred = nullptr;
+		node_tatas<T> *current = first;
 
-        if (current != nullptr) {
-            current->tatas_lock.lock(); // Lock the first node.
-        }
+		if (current != nullptr)
+		{
+			current->tatas_lock.lock(); // Lock the first node.
+		}
 
-        while (current != nullptr && current->value < v) // iterate the same as in the insert way
-        {
-            if (pred != nullptr)
-            {
-                pred->tatas_lock.unlock(); 
-            }
+		while (current != nullptr && current->value < v) // iterate the same as in the insert way
+		{
+			if (pred != nullptr)
+			{
+				pred->tatas_lock.unlock();
+			}
 
-            pred = current;
-            current = current->next;
+			pred = current;
+			current = current->next;
 
-            if (current != nullptr)
-            {
-                current->tatas_lock.lock();
-            }
-        }
+			if (current != nullptr)
+			{
+				current->tatas_lock.lock();
+			}
+		}
 
-        if (current == nullptr || current->value != v)
-        {
-            if (current != nullptr)
-            {
-                current->tatas_lock.unlock();
-            }
-            if (pred != nullptr)
-            {
-                pred->tatas_lock.unlock();
-            }
-            return; // v not found
-        }
+		if (current == nullptr || current->value != v)
+		{
+			if (current != nullptr)
+			{
+				current->tatas_lock.unlock();
+			}
+			if (pred != nullptr)
+			{
+				pred->tatas_lock.unlock();
+			}
+			return; // v not found
+		}
 
-        if (pred == nullptr)
-        {
-            first = current->next;
-        }
-        else
-        {
-            pred->next = current->next;
-        }
+		if (pred == nullptr)
+		{
+			first = current->next;
+		}
+		else
+		{
+			pred->next = current->next;
+		}
 
-        current->tatas_lock.unlock();
-        delete current;
+		current->tatas_lock.unlock();
+		delete current;
 
-        if (pred != nullptr)
-        {
-            pred->tatas_lock.unlock();
-        }
-    }
+		if (pred != nullptr)
+		{
+			pred->tatas_lock.unlock();
+		}
+	}
 
 	/* count elements with value v in the list */
 	std::size_t count(T v)

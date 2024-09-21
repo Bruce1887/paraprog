@@ -138,6 +138,8 @@ int main(int argc, char *argv[])
     }
     benchmark(threadcnt, u8"non-thread-safe read", [&l](int random)
               { read(*l, random); });
+    exit(0);
+    
     benchmark(threadcnt, u8"non-thread-safe update", [&l](int random)
               { update(*l, random); });
 
@@ -148,6 +150,7 @@ int main(int argc, char *argv[])
     {
         l->insert(uniform_dist(engine));
     }
+    
     benchmark(threadcnt, u8"non-thread-safe mixed", [&l](int random)
               { mixed(*l, random); });
 

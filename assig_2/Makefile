@@ -15,3 +15,7 @@ all: $(PROG).cpp
 clean:
 	$(RM) $(PROG)
 	$(RM) $(PROG1)
+	$(RM) $(PROG4)
+	$(RM) $(BENCH)
+	
+	
