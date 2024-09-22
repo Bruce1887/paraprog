@@ -69,6 +69,7 @@ void mixed(List &l, int random)
 
 void initialise_list(int option, list_superclass<int> *&l, char *argv[])
 {
+    std::cout << "initialising list..." << std::endl;
     switch (option)
     {
     case 1:
@@ -91,6 +92,18 @@ void initialise_list(int option, list_superclass<int> *&l, char *argv[])
         std::exit(EXIT_FAILURE);
         break;
     }
+    
+    /* set up random number generator */
+    std::random_device rd;
+    std::mt19937 engine(rd());
+    std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN, DATA_VALUE_RANGE_MAX);
+
+    /* prefill list with 1024 elements */
+    for (int i = 0; i < DATA_PREFILL; i++)
+    {
+        l->insert(uniform_dist(engine));
+    }
+    std::cout << "list initialised." << std::endl;
 }
 
 int main(int argc, char *argv[])
@@ -121,36 +134,25 @@ int main(int argc, char *argv[])
     }
     // input checks complete
 
-    /* set up random number generator */
-    std::random_device rd;
-    std::mt19937 engine(rd());
-    std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN, DATA_VALUE_RANGE_MAX);
-
     // declare list
     list_superclass<int> *l;
-    // cg_mutex_sorted_list<int> l;
+
+    /* start with fresh list: update test left list in random size */    
     initialise_list(option, l, argv);
 
-    /* prefill list with 1024 elements */
-    for (int i = 0; i < DATA_PREFILL; i++)
-    {
-        l->insert(uniform_dist(engine));
-    }
+    std::cout << "running read benchmark..." << std::endl;
     benchmark(threadcnt, u8"non-thread-safe read", [&l](int random)
               { read(*l, random); });
     exit(0);
-    
+
+        std::cout << "running update benchmark..." << std::endl;
     benchmark(threadcnt, u8"non-thread-safe update", [&l](int random)
               { update(*l, random); });
 
-    /* start with fresh list: update test left list in random size */
-    /* prefill list with 1024 elements */
+    /* start with fresh list: update test left list in random size */    
     initialise_list(option, l, argv);
-    for (int i = 0; i < DATA_PREFILL; i++)
-    {
-        l->insert(uniform_dist(engine));
-    }
     
+    std::cout << "running mixed benchmark..." << std::endl;
     benchmark(threadcnt, u8"non-thread-safe mixed", [&l](int random)
               { mixed(*l, random); });
 
