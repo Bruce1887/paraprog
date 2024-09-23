@@ -138,14 +138,22 @@ int main(int argc, char *argv[])
     list_superclass<int> *l;
 
     /* start with fresh list: update test left list in random size */    
-    initialise_list(option, l, argv);
+    // initialise_list(option, l, argv);
 
+    // test stuff remove later
+    l = new fg_mutex_sorted_list<int>;
+    l->insert(1);
+    l->insert(2);
+    l->insert(4);
+    l->insert(3);
+    //l->remove(1);
+
+    exit(0);
     std::cout << "running read benchmark..." << std::endl;
     benchmark(threadcnt, u8"non-thread-safe read", [&l](int random)
               { read(*l, random); });
-    exit(0);
 
-        std::cout << "running update benchmark..." << std::endl;
+    std::cout << "running update benchmark..." << std::endl;
     benchmark(threadcnt, u8"non-thread-safe update", [&l](int random)
               { update(*l, random); });
 
