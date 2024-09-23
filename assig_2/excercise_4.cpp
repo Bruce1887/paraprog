@@ -140,6 +140,7 @@ int main(int argc, char *argv[])
     /* start with fresh list: update test left list in random size */
     initialise_list(option, l, argv);
 
+    //std::cout << "skipping read benchmark. RESTORE BEFORE HAND-IN" << std::endl;
     std::cout << "running read benchmark..." << std::endl;
     benchmark(threadcnt, u8"non-thread-safe read", [&l](int random)
               { read(*l, random); });
@@ -149,11 +150,13 @@ int main(int argc, char *argv[])
               { update(*l, random); });
 
     /* start with fresh list: update test left list in random size */
-    // initialise_list(option, l, argv);
+    delete l;
+    initialise_list(option, l, argv);
 
     std::cout << "running mixed benchmark..." << std::endl;
     benchmark(threadcnt, u8"non-thread-safe mixed", [&l](int random)
               { mixed(*l, random); });
 
+    delete l;
     return EXIT_SUCCESS;
 }
