@@ -92,7 +92,7 @@ void initialise_list(int option, list_superclass<int> *&l, char *argv[])
         std::exit(EXIT_FAILURE);
         break;
     }
-    
+
     /* set up random number generator */
     std::random_device rd;
     std::mt19937 engine(rd());
@@ -137,18 +137,9 @@ int main(int argc, char *argv[])
     // declare list
     list_superclass<int> *l;
 
-    /* start with fresh list: update test left list in random size */    
-    // initialise_list(option, l, argv);
+    /* start with fresh list: update test left list in random size */
+    initialise_list(option, l, argv);
 
-    // test stuff remove later
-    l = new fg_mutex_sorted_list<int>;
-    l->insert(1);
-    l->insert(2);
-    l->insert(4);
-    l->insert(3);
-    //l->remove(1);
-
-    exit(0);
     std::cout << "running read benchmark..." << std::endl;
     benchmark(threadcnt, u8"non-thread-safe read", [&l](int random)
               { read(*l, random); });
@@ -157,9 +148,9 @@ int main(int argc, char *argv[])
     benchmark(threadcnt, u8"non-thread-safe update", [&l](int random)
               { update(*l, random); });
 
-    /* start with fresh list: update test left list in random size */    
-    initialise_list(option, l, argv);
-    
+    /* start with fresh list: update test left list in random size */
+    // initialise_list(option, l, argv);
+
     std::cout << "running mixed benchmark..." << std::endl;
     benchmark(threadcnt, u8"non-thread-safe mixed", [&l](int random)
               { mixed(*l, random); });

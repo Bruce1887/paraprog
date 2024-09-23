@@ -179,10 +179,11 @@ template <typename T>
 class fg_mutex_sorted_list : public list_superclass<T>
 { // fg = fine grained
 public:
-	fg_mutex_sorted_list() : list_superclass<T>(){
+	fg_mutex_sorted_list() : list_superclass<T>()
+	{
 		node_mutex<T> *dummy = new node_mutex<T>();
 		dummy->next = nullptr;
-	    dummy->value = std::numeric_limits<int>::max();
+		dummy->value = std::numeric_limits<int>::max();
 		first = dummy;
 		std::cout << "fg_mutex_sorted_list created with dummy" << std::endl;
 	}
@@ -199,42 +200,83 @@ public:
 	}
 	void insert(T v)
 	{
-		auto predicate = [v](node_mutex<T>* n) {return n->value >= v;}; 
-		node_mutex<T>* previous = find_first_by_predicate(predicate);
+		auto predicate = [v](node_mutex<T> *n)
+		{ return n->value >= v; };
+		node_mutex<T> *previous = find_first_by_predicate(predicate);
 
-		node_mutex<T>* new_node = new node_mutex<T>();
+		node_mutex<T> *new_node = new node_mutex<T>();
 		new_node->value = v;
 
-		std::cout << "value to insert: " << v << std::endl;
-		if(previous != nullptr) {
-			std::cout << "value found from predicate: "<< previous->value << ", next: " << previous->next->value << std::endl;
+		// std::cout << "value to insert: " << v << std::endl;
+		if (previous != nullptr)
+		{
+			// std::cout << "value found from predicate: "<< previous->value << ", next: " << previous->next->value << std::endl;
 			new_node->next = previous->next;
 			previous->next = new_node;
-			previous->next->mutex.unlock();
+			new_node->next->mutex.unlock();
 			previous->mutex.unlock();
 		}
-		else {
-			std::cout << "no value found from predicate"<< std::endl;
-			std::cout << "first->val: "<< first->value << std::endl;
+		else
+		{
+			// std::cout << "no value found from predicate"<< std::endl;
+			// std::cout << "first->val: "<< first->value << std::endl;
 			// current is null, this means that the list only has a dummy node (in this case)
 			bool free_first_when_done = first->next == nullptr;
 			new_node->next = first;
 			first = new_node;
 			new_node->next->mutex.unlock();
-			std::cout << "added node with value: "<< new_node->value << std::endl;
-			std::cout << "free_first_when_done: "<< free_first_when_done << std::endl;
-			if (free_first_when_done) {
+			// std::cout << "added node with value: "<< new_node->value << std::endl;
+			// std::cout << "free_first_when_done: "<< free_first_when_done << std::endl;
+			if (free_first_when_done)
+			{
 				first_lock.unlock();
 			}
 		}
 	}
 
 	void remove(T v)
-	{	
+	{
 		// fetches the node before the node with value v. Locks the node before the node with value v and the node with value v (if it finds it).
-		auto predicate = [v](node_mutex<T>* n) {return n->next != nullptr && n->next->value == v;}; 
-		node_mutex<T>* prev = find_first_by_predicate(predicate);  
-		if (prev != nullptr) {
+		auto predicate = [v](node_mutex<T> *n)
+		{ return n->value == v; };
+		node_mutex<T> *prev = find_first_by_predicate(predicate);
+
+		if (prev != nullptr)
+		{
+			if (prev->next != nullptr)
+			{
+				// prev and prev->next is locked
+				node_mutex<T> *node_to_delete = prev->next;
+				node_mutex<T> *node_after = prev->next->next;
+				prev->next = node_after;
+				delete node_to_delete;
+				prev->mutex.unlock();
+			}
+			else
+			{
+				// edit: This will never happen, as nodes only have values in the range 0-256 (last time i checked). The dummy node has a value of max int.
+				// we are trying to remove the dummy. this is not allowed.
+				// TODO: unlock all that should be unlocked
+			}
+		}
+		else
+		{
+			if (first->value == v)
+			{ // we did find the node to remove and it is first
+				// std::cout << "removing first with value " << v << std::endl;
+				node_mutex<T> *node_to_delete = first;
+				first = first->next;
+				delete node_to_delete;
+				first_lock.unlock();
+			}
+			else
+			{ // we did not find the node to remove
+
+				first_lock.unlock();
+			}
+		}
+
+		/*
 			//prev is not null and is locked
 			if (prev->next != nullptr) {
 				//prev->next is not null and is locked
@@ -242,95 +284,80 @@ public:
 				//delete prev->next and relink the list
 				auto node_to_delete = prev->next;
 				prev->next = node_to_delete->next;
-				delete node_to_delete;				
+				delete node_to_delete;
 
-				//unlock prev->next	
+				//unlock prev->next
 				prev->next->mutex.unlock();
 			}
 			//unlock prev
 			prev->mutex.unlock();
-		}
+		*/
 	}
 
 	std::size_t count(T v)
 	{
-		node_mutex<T> *current = first; // first is never null
+		int count = 0;
 
-		std::cout << "locking first (current)" << std::endl;
-		current->mutex.lock();
-		std::cout << "first locked (current)" << std::endl;
+		first_lock.lock();
 
-		while (current != nullptr)
-		{	
-			std::cout << "current->value: " << current->value << std::endl;
-			if (current->next != nullptr)
-			{
-				std::cout << "locking current->next with val: " << current->next->value <<  std::endl;
-				current->next->mutex.lock();
-				std::cout << "current->next locked" << std::endl;
+		node_mutex<T> *previous = nullptr;
+		first->mutex.lock();
+		node_mutex<T> *current = first;
+
+		while(current != nullptr) {
+			if (previous != nullptr) {
+				previous->mutex.unlock();
+			} else {
+				first_lock.unlock();
 			}
-			// current and current->next is now locked, if they are not null
-			if (current->value == v) break;
 			
-			// unlock current but not current->next
-			current->mutex.unlock();
-
-			// set current to current->next
-			current = current->next;			
-		}
-
-		if (current == nullptr) return 0; // if we did not find a value v
-		
-		std::size_t cnt = 0;
-		while (current != nullptr && current->value == v)
-		{
-			if (current->next != nullptr)
-			{
-				current->next->mutex.lock();
+			if(current->value == v) {
+				count++;
 			}
+			previous = current;
+			current = current->next;
 
-			// count
-			cnt++;
-			std::cout << "counting: " << cnt << std::endl;
-
-			// unlock current but not current->next
-			current->mutex.unlock();
-
-			// set current to current->next
-			current = current->next;			
+			if (current != nullptr && current->value <= v) {
+				current->mutex.lock();
+			} else {
+				previous->mutex.unlock();
+				return count;
+			}
 		}
-		return cnt;
+		// we will never get here
+		return 0;
 	}
 
 private:
 	node_mutex<T> *first = nullptr; // this should be a dummy when the list is empty
-	std::mutex first_lock; // this locks the first node in the list
+	std::mutex first_lock;			// this locks the first node in the list
 
-	// returns a reference to the first node before the node that satisfies the predicate. 
+	// returns a reference to the first node before the node that satisfies the predicate.
 	// the first that satisfies the predicate node is locked as well as the previous one when this function returns.
 	// returns nullptr if no node satisfies the predicate, or if the first node does satisfy the predicate.
 	// i.e. if the first node satisfies the predicate, the first node is locked and the function returns nullptr.
-	node_mutex<T>* find_first_by_predicate(std::function<bool(node_mutex<T> *)> predicate)
+	node_mutex<T> *find_first_by_predicate(std::function<bool(node_mutex<T> *)> predicate)
 	{
-		std::cout << std::endl << "starting find_first_by_predicate"<< std::endl;
+		// std::cout << std::endl << "starting find_first_by_predicate"<< std::endl;
 
-		std::cout << "lock first_lock in ffbp..."<< std::endl;
+		// std::cout << "lock first_lock in ffbp..."<< std::endl;
 		first_lock.lock();
-		std::cout << "first_lock locked in ffbp."<< std::endl;
+		// std::cout << "first_lock locked in ffbp."<< std::endl;
 		node_mutex<T> *previous = nullptr;
 		node_mutex<T> *current = first; // first is never null
 
-		std::cout << "lock current in ffbp... "<< current->value << std::endl;
+		// std::cout << "lock current in ffbp... "<< current->value << std::endl;
 		current->mutex.lock();
-		std::cout << "current locked in ffbp."<< current->value << std::endl;
+		// std::cout << "current locked in ffbp. "<< current->value << std::endl;
 
 		while (current != nullptr)
-		{			
+		{
 			if (previous != nullptr)
 			{
 				previous->mutex.unlock();
 			}
-			else {
+			else
+			{
 				first_lock.unlock();
 			}
 
@@ -339,15 +366,17 @@ private:
 
 			if (current != nullptr)
 			{
-				std::cout << "lock current in ffbp... "<< current->value << std::endl;
+				// std::cout << "lock current in ffbp... "<< current->value << std::endl;
 				current->mutex.lock();
-				std::cout << "current locked in ffbp."<< current->value << std::endl;
-				if (predicate(current)) {
+				// std::cout << "current locked in ffbp."<< current->value << std::endl;
+				if (predicate(current))
+				{
 					return previous;
 				}
 			}
-			else {
-				previous->mutex.unlock();				
+			else
+			{
+				previous->mutex.unlock();
 			}
 		}
 		return nullptr;
