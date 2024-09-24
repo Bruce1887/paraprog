@@ -144,8 +144,6 @@ int main(int argc, char *argv[])
     std::cout << "running read benchmark..." << std::endl;
     benchmark(threadcnt, u8"non-thread-safe read", [&l](int random)
               { read(*l, random); });
-    delete l;
-    exit(0);
     
     std::cout << "running update benchmark..." << std::endl;
     benchmark(threadcnt, u8"non-thread-safe update", [&l](int random)

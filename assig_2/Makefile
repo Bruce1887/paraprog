@@ -2,7 +2,7 @@ PROG=excercise_1
 PROG1=excercise_2
 PROG4=excercise_4
 BENCH=benchmark_example
-CFLAGS = -g -Wall -pthread
+CFLAGS = -g -Wall -pthread -O3
 
 SANITIZER = false
 ifeq ($(SANITIZER),true)
