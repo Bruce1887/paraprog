@@ -136,18 +136,24 @@ int main(int argc, char *argv[])
 
     // declare list
     list_superclass<int> *l;
-
+    
     /* start with fresh list: update test left list in random size */
-    initialise_list(option, l, argv);
+    initialise_list(option, l, argv); // UNCOMMENT BEFORE HAND-IN
+
+
+    std::cout << "running update benchmark..." << std::endl;
+    benchmark(threadcnt, u8"non-thread-safe update", [&l](int random)
+              { update(*l, random); });
+
+    delete l;
+    exit(0);
 
     //std::cout << "skipping read benchmark. RESTORE BEFORE HAND-IN" << std::endl;
     std::cout << "running read benchmark..." << std::endl;
     benchmark(threadcnt, u8"non-thread-safe read", [&l](int random)
               { read(*l, random); });
+              
 
-    std::cout << "running update benchmark..." << std::endl;
-    benchmark(threadcnt, u8"non-thread-safe update", [&l](int random)
-              { update(*l, random); });
 
     /* start with fresh list: update test left list in random size */
     delete l;
