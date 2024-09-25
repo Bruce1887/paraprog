@@ -85,7 +85,7 @@ void initialise_list(int option, list_superclass<int> *&l, char *argv[])
         l = new fg_tatas_sorted_list<int>;
         break;
     case 5:
-        std::cout << "Not implemented yet" << std::endl;
+        l = new fg_clh_sorted_list<int>;
         break;
     default:
         std::cerr << u8"Invalid option '" << argv[1] << u8"'\n"; // should never get here
@@ -97,7 +97,6 @@ void initialise_list(int option, list_superclass<int> *&l, char *argv[])
     std::random_device rd;
     std::mt19937 engine(rd());
     std::uniform_int_distribution<int> uniform_dist(DATA_VALUE_RANGE_MIN, DATA_VALUE_RANGE_MAX);
-
     /* prefill list with 1024 elements */
     for (int i = 0; i < DATA_PREFILL; i++)
     {

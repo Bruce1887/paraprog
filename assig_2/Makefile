@@ -7,7 +7,7 @@ CFLAGS = -g -Wall -pthread -O3
 SANITIZER = false
 ifeq ($(SANITIZER),true)
     CFLAGS += -fsanitize=thread
-# -fsanitize=address -fsanitize=leak -fsanitize=undefined -fsanitize=thread
+#-fsanitize=address -fsanitize=leak -fsanitize=undefined -fsanitize=thread
 endif
 
 all: $(PROG).cpp
