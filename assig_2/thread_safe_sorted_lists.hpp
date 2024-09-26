@@ -10,76 +10,126 @@
 #include <functional>
 #include <pthread.h>
 
-class CLHLock2 {
-	private:
-		std::mutex lock;
-		bool* tail;	
 
-	public:
-	CLHLock2() {
-		tail = new bool();			
-		*tail = false;
-	}	
-	~CLHLock2() {
-		delete tail;
+class CLHLock2
+{
+private:
+	std::atomic<bool*> tail;
+	std::mutex out;
+
+public:
+	CLHLock2()
+	{
+		tail.store(new bool{false});
 	}
-	bool* aquire() {
-		lock.lock();
-		
-		bool* new_bool = new bool();
-		*new_bool = true;
-		bool* old_bool = tail;
-		tail = new_bool;
-		lock.unlock();
-		while(*old_bool) {
+	~CLHLock2() = default;
+
+	bool *lock()
+	{		
+		bool* thread_local_bool = new bool{true};
+		out.lock();
+		std::cout << pthread_self() << " thread is trying to lock" << std::endl;
+		std::cout << "tail: " << tail.load() << "-" << *tail.load() << std::endl;
+		std::cout << " thread_local_bool: " << thread_local_bool << "-" << *thread_local_bool << std::endl;
+		out.unlock();
+
+		bool* old_bool = tail.exchange(thread_local_bool);
+
+		out.lock();
+		std::cout << "old_bool: "<< old_bool << "-" << *old_bool<< std::endl;
+		out.unlock();
+
+		// tail is now set to the thread_local_bools value
+		// old bool is the bool this thread should spin on
+		tail = thread_local_bool;
+
+		out.lock();
+		std::cout << pthread_self() << " starting busy-wait" << std::endl;
+		out.unlock();
+		int local_wait_counter = 0;
+		while (*old_bool)
+		{
+			local_wait_counter++;
 			// Busy-wait
-		}
+			// out.lock();
+			// std::cout << pthread_self() << " thread is spinning" << std::endl;
+			// out.unlock();
+			
+		}		
+		// Free old bool?
 		delete old_bool;
-		return new_bool;
+
+		out.lock();
+		std::cout << pthread_self() << " exited busy-wait after " << local_wait_counter << " cycles." << std::endl;
+		out.unlock();
+		return thread_local_bool;
 	}
 
-	void release(bool* my_bool) { // this is the bool that was returned by aquire	
-		*my_bool = false;		
+	void unlock(bool *tl_bool)
+	{ // this is the bool that was returned by aquire
+		if (tl_bool)
+		{	
+			out.lock();
+			std::cout << "unlocking CLH lock" << std::endl;
+			std::cout << "thread_local_bool before setting value to false: " << tl_bool << "-" << *tl_bool << std::endl;
+			*tl_bool = false;
+			std::cout << "thread_local_bool after setting value to false: " << tl_bool << "-" << *tl_bool << std::endl;
+			std::cout << "tail after setting value to false: " << tail << "-" << *tail << std::endl;
+			out.unlock();
+		}
+		else
+		{
+			std::cout << pthread_self() << " thread tried to unlock a nullptr!!" << std::endl;
+			exit(1);
+		}
 	}
 };
 
-struct Node {
+
+struct Node
+{
 	std::atomic<bool> locked{false};
 };
 
 // thread_local static Node* myNode = nullptr;
-// thread_local static Node* myPrevNode = nullptr;	
+// thread_local static Node* myPrevNode = nullptr;
 
-class CLHLock {
+class CLHLock
+{
 private:
-	std::atomic<Node*> tail;
-	Node* myNode;
-	Node* myPrevNode;
+	std::atomic<Node *> tail;
+	Node *myNode;
+	Node *myPrevNode;
 
 public:
-	CLHLock() {
-		Node* initialNode = new Node();
+	CLHLock()
+	{
+		Node *initialNode = new Node();
 		initialNode->locked.store(false);
 		tail.store(initialNode);
 	}
 
-	void lock() {
+	void lock()
+	{
 		myNode = new Node();
 		myNode->locked.store(true);
-		Node* prev = tail.exchange(myNode);
+		Node *prev = tail.exchange(myNode);
 		myPrevNode = prev;
-		while (prev->locked.load()) {
+		while (prev->locked.load())
+		{
 			// Busy-wait
 		}
 	}
 
-	void unlock() {
+	void unlock()
+	{
 		myNode->locked.store(false);
-		//myNode = myPrevNode;
+		// myNode = myPrevNode;
 	}
 
-	~CLHLock() {
-	delete tail.load();	
+	~CLHLock()
+	{
+		delete tail.load();
 	}
 };
 
@@ -140,7 +190,7 @@ struct node_clh // used in fine grained mutex list
 {
 	T value;
 	node_clh<T> *next;
-	CLHLock clh_lock;
+	CLHLock2 clh_lock;
 };
 
 template <typename T>
@@ -296,17 +346,18 @@ public:
 		if (first != nullptr)
 		{
 			// out.lock();
-			// std::cout << pthread_self() << " locking first in insert, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " locking first in insert, value: " << first->value << std::endl;
 			// out.unlock();
 			first->mutex.lock();
 			// out.lock();
-			// std::cout << pthread_self() << " first locked in insert, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " first locked in insert, value: " << first->value << std::endl;
 			// out.unlock();
 		}
-		else {
-			//out.lock();
-			//std::cout << pthread_self() << " list is empty" << std::endl << std::endl;
-			//out.unlock();
+		else
+		{
+			// out.lock();
+			// std::cout << pthread_self() << " list is empty" << std::endl << std::endl;
+			// out.unlock();
 		}
 
 		node_mutex<T> *pred = nullptr;
@@ -411,14 +462,15 @@ public:
 		if (first != nullptr)
 		{
 			// out.lock();
-			// std::cout << pthread_self() << " locking first in remove, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " locking first in remove, value: " << first->value << std::endl;
 			// out.unlock();
 			first->mutex.lock();
 			// out.lock();
 			// std::cout << pthread_self() << " first locked in remove value: " << first->value << std::endl;
 			// out.unlock();
 		}
-		else {
+		else
+		{
 			// out.lock();
 			// std::cout << pthread_self() << " list is empty" << std::endl;
 			// out.unlock();
@@ -460,7 +512,7 @@ public:
 				// out.unlock();
 				current->mutex.lock();
 			}
-		}	
+		}
 
 		// previous or list_lock is now locked (if we are at the beginning of the list)
 		// current may be locked or is nullptr (if we are at end of list)
@@ -470,7 +522,7 @@ public:
 
 		// out.lock();
 		// std::cout << std::endl << pthread_self() << " after while loop in remove" << std::endl;
-		// 
+		//
 		// if (current != nullptr)
 		// {
 		// 	std::cout << pthread_self() << " current->value: " << current->value << std::endl;
@@ -481,16 +533,20 @@ public:
 		// std::cout << pthread_self() << " list_locked: " << list_lock_locked << std::endl;
 		// out.unlock();
 
-		if(list_lock_locked){
-			if(first != nullptr){
+		if (list_lock_locked)
+		{
+			if (first != nullptr)
+			{
 				// there is a first element which we might want to remove
-				if(first->value == v){
+				if (first->value == v)
+				{
 					// we want to remove the first element
 					node_mutex<T> *node_to_remove = first;
 					first = first->next;
 					delete node_to_remove; // dont need to unlock the mutex since we are deleting the node. No other thread should have access to it.
 				}
-				else{
+				else
+				{
 					// if first value exists but is not the value we want to remove
 					first->mutex.unlock();
 				}
@@ -501,13 +557,16 @@ public:
 			list_lock.unlock();
 		}
 		// if we reach the end of the list.
-		else if (current == nullptr) {
+		else if (current == nullptr)
+		{
 			// current is not locked, but previous may be locked
-			if(pred != nullptr){
+			if (pred != nullptr)
+			{
 				pred->mutex.unlock();
 			}
 		}
-		else {
+		else
+		{
 			// we are in the middle of the list, and we might have found the element we want to remove
 			// current and previous is locked. list_lock is not locked
 			// out.lock();
@@ -524,7 +583,8 @@ public:
 				pred->next = current->next;
 				delete current;
 			}
-			else{
+			else
+			{
 				current->mutex.unlock();
 			}
 			pred->mutex.unlock();
@@ -548,14 +608,15 @@ public:
 		if (first != nullptr)
 		{
 			// out.lock();
-			// std::cout << pthread_self() << " locking first in count, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " locking first in count, value: " << first->value << std::endl;
 			// out.unlock();
 			first->mutex.lock();
 			// out.lock();
-			// std::cout << pthread_self() << " first locked in count, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " first locked in count, value: " << first->value << std::endl;
 			// out.unlock();
 		}
-		else {
+		else
+		{
 			// out.lock();
 			// std::cout << pthread_self() << " list is empty" << std::endl << std::endl;
 			// out.unlock();
@@ -602,7 +663,7 @@ public:
 
 		// out.lock();
 		// std::cout << std::endl << pthread_self() << " after while loop in count" << std::endl;
-		// 
+		//
 		// if (current != nullptr)
 		// {
 		// 	std::cout << pthread_self() << " current->value: " << current->value << std::endl;
@@ -613,14 +674,18 @@ public:
 		// std::cout << pthread_self() << " list_locked: " << list_lock_locked << std::endl;
 		// out.unlock();
 
-		if(current == nullptr) {
-			if(list_lock_locked) {
+		if (current == nullptr)
+		{
+			if (list_lock_locked)
+			{
 				// we never entered the while loop, list is empty or the first element is greater than or equal to the value we are looking for
 				list_lock.unlock();
 			}
-			else if (current == nullptr) {
+			else if (current == nullptr)
+			{
 				// we have reached the end of the list
-				if(pred != nullptr){
+				if (pred != nullptr)
+				{
 					pred->mutex.unlock();
 				}
 			}
@@ -661,13 +726,16 @@ public:
 		}
 
 		// unlock locks if any are still locked, as we are done counting. this is kinda dogwater but works
-		if(current != nullptr){
+		if (current != nullptr)
+		{
 			current->mutex.unlock();
 		}
-		if(pred != nullptr){
+		if (pred != nullptr)
+		{
 			pred->mutex.unlock();
 		}
-		if(list_lock_locked){
+		if (list_lock_locked)
+		{
 			list_lock.unlock();
 		}
 		return counter;
@@ -816,17 +884,18 @@ public:
 		if (first != nullptr)
 		{
 			// out.lock();
-			// std::cout << pthread_self() << " locking first in insert, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " locking first in insert, value: " << first->value << std::endl;
 			// out.unlock();
 			first->tatas_lock.lock();
 			// out.lock();
-			// std::cout << pthread_self() << " first locked in insert, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " first locked in insert, value: " << first->value << std::endl;
 			// out.unlock();
 		}
-		else {
-			//out.lock();
-			//std::cout << pthread_self() << " list is empty" << std::endl << std::endl;
-			//out.unlock();
+		else
+		{
+			// out.lock();
+			// std::cout << pthread_self() << " list is empty" << std::endl << std::endl;
+			// out.unlock();
 		}
 
 		node_tatas<T> *pred = nullptr;
@@ -931,14 +1000,15 @@ public:
 		if (first != nullptr)
 		{
 			// out.lock();
-			// std::cout << pthread_self() << " locking first in remove, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " locking first in remove, value: " << first->value << std::endl;
 			// out.unlock();
 			first->tatas_lock.lock();
 			// out.lock();
 			// std::cout << pthread_self() << " first locked in remove value: " << first->value << std::endl;
 			// out.unlock();
 		}
-		else {
+		else
+		{
 			// out.lock();
 			// std::cout << pthread_self() << " list is empty" << std::endl;
 			// out.unlock();
@@ -980,7 +1050,7 @@ public:
 				// out.unlock();
 				current->tatas_lock.lock();
 			}
-		}	
+		}
 
 		// previous or list_lock is now locked (if we are at the beginning of the list)
 		// current may be locked or is nullptr (if we are at end of list)
@@ -990,7 +1060,7 @@ public:
 
 		// out.lock();
 		// std::cout << std::endl << pthread_self() << " after while loop in remove" << std::endl;
-		// 
+		//
 		// if (current != nullptr)
 		// {
 		// 	std::cout << pthread_self() << " current->value: " << current->value << std::endl;
@@ -1001,16 +1071,20 @@ public:
 		// std::cout << pthread_self() << " list_locked: " << list_lock_locked << std::endl;
 		// out.unlock();
 
-		if(list_lock_locked){
-			if(first != nullptr){
+		if (list_lock_locked)
+		{
+			if (first != nullptr)
+			{
 				// there is a first element which we might want to remove
-				if(first->value == v){
+				if (first->value == v)
+				{
 					// we want to remove the first element
 					node_tatas<T> *node_to_remove = first;
 					first = first->next;
 					delete node_to_remove; // dont need to unlock the mutex since we are deleting the node. No other thread should have access to it.
 				}
-				else{
+				else
+				{
 					// if first value exists but is not the value we want to remove
 					first->tatas_lock.unlock();
 				}
@@ -1021,13 +1095,16 @@ public:
 			list_lock.unlock();
 		}
 		// if we reach the end of the list.
-		else if (current == nullptr) {
+		else if (current == nullptr)
+		{
 			// current is not locked, but previous may be locked
-			if(pred != nullptr){
+			if (pred != nullptr)
+			{
 				pred->tatas_lock.unlock();
 			}
 		}
-		else {
+		else
+		{
 			// we are in the middle of the list, and we might have found the element we want to remove
 			// current and previous is locked. list_lock is not locked
 			// out.lock();
@@ -1044,7 +1121,8 @@ public:
 				pred->next = current->next;
 				delete current;
 			}
-			else{
+			else
+			{
 				current->tatas_lock.unlock();
 			}
 			pred->tatas_lock.unlock();
@@ -1052,7 +1130,7 @@ public:
 	}
 
 	/* count elements with value v in the list */
-std::size_t count(T v)
+	std::size_t count(T v)
 	{
 		// out.lock();
 		// std::cout << std::endl << pthread_self() << " starting count, trying to count value: " << v << std::endl;
@@ -1069,14 +1147,15 @@ std::size_t count(T v)
 		if (first != nullptr)
 		{
 			// out.lock();
-			// std::cout << pthread_self() << " locking first in count, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " locking first in count, value: " << first->value << std::endl;
 			// out.unlock();
 			first->tatas_lock.lock();
 			// out.lock();
-			// std::cout << pthread_self() << " first locked in count, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " first locked in count, value: " << first->value << std::endl;
 			// out.unlock();
 		}
-		else {
+		else
+		{
 			// out.lock();
 			// std::cout << pthread_self() << " list is empty" << std::endl << std::endl;
 			// out.unlock();
@@ -1123,7 +1202,7 @@ std::size_t count(T v)
 
 		// out.lock();
 		// std::cout << std::endl << pthread_self() << " after while loop in count" << std::endl;
-		// 
+		//
 		// if (current != nullptr)
 		// {
 		// 	std::cout << pthread_self() << " current->value: " << current->value << std::endl;
@@ -1134,14 +1213,18 @@ std::size_t count(T v)
 		// std::cout << pthread_self() << " list_locked: " << list_lock_locked << std::endl;
 		// out.unlock();
 
-		if(current == nullptr) {
-			if(list_lock_locked) {
+		if (current == nullptr)
+		{
+			if (list_lock_locked)
+			{
 				// we never entered the while loop, list is empty or the first element is greater than or equal to the value we are looking for
 				list_lock.unlock();
 			}
-			else if (current == nullptr) {
+			else if (current == nullptr)
+			{
 				// we have reached the end of the list
-				if(pred != nullptr){
+				if (pred != nullptr)
+				{
 					pred->tatas_lock.unlock();
 				}
 			}
@@ -1182,13 +1265,16 @@ std::size_t count(T v)
 		}
 
 		// unlock locks if any are still locked, as we are done counting. this is kinda dogwater but works
-		if(current != nullptr){
+		if (current != nullptr)
+		{
 			current->tatas_lock.unlock();
 		}
-		if(pred != nullptr){
+		if (pred != nullptr)
+		{
 			pred->tatas_lock.unlock();
 		}
-		if(list_lock_locked){
+		if (list_lock_locked)
+		{
 			list_lock.unlock();
 		}
 		return counter;
@@ -1198,7 +1284,6 @@ private:
 	node_tatas<T> *first = nullptr;
 	TATASLock list_lock;
 	std::mutex out;
-
 };
 
 template <typename T>
@@ -1222,77 +1307,84 @@ public:
 	}
 	void insert(T v)
 	{
-		// out.lock();
-		// std::cout << std::endl << pthread_self() << " starting insert, trying to insert value: " << v << std::endl;
-		// std::cout << pthread_self() << " locking list in insert" << std::endl;
-		// out.unlock();
-		list_lock.lock();
-		// out.lock();
-		// std::cout << pthread_self() << " list locked in insert" << std::endl;
-		// out.unlock();
+		bool *list_bool;
+		bool *pred_bool;
+		bool *succ_bool;
+
+		out.lock();
+		std::cout << std::endl << pthread_self() << " starting insert, trying to insert value: " << v << std::endl;
+		std::cout << pthread_self() << " locking list in insert" << std::endl;
+		out.unlock();
+		list_bool = list_lock.lock();
+		out.lock();
+		std::cout << pthread_self() << " list locked in insert" << std::endl;
+		out.unlock();
 
 		// we use this bool to have each thread only unlock the list_lock once
 		bool list_lock_locked = true;
-
 		if (first != nullptr)
 		{
-			// out.lock();
-			// std::cout << pthread_self() << " locking first in insert, value: " << first->value << std::endl; 
-			// out.unlock();
-			first->clh_lock.lock();
-			// out.lock();
-			// std::cout << pthread_self() << " first locked in insert, value: " << first->value << std::endl; 
-			// out.unlock();
+			out.lock();
+			std::cout << pthread_self() << " locking first in insert, value: " << first->value << std::endl;
+			out.unlock();
+			succ_bool = first->clh_lock.lock();
+			out.lock();
+			std::cout << pthread_self() << " first locked in insert, value: " << first->value << std::endl;
+			out.unlock();
 		}
-		else {
-			//out.lock();
-			//std::cout << pthread_self() << " list is empty" << std::endl << std::endl;
-			//out.unlock();
+		else
+		{
+			out.lock();
+			std::cout << pthread_self() << " list is empty" << std::endl << std::endl;
+			out.unlock();
 		}
 
 		node_clh<T> *pred = nullptr;
 		node_clh<T> *succ = first;
 
-		// out.lock();
-		// std::cout << pthread_self() << " before while loop in insert" << std::endl;
-		// out.unlock();
+		out.lock();
+		std::cout << pthread_self() << " before while loop in insert" << std::endl;
+		out.unlock();
 
 		while (succ != nullptr && succ->value < v)
 		{
 			if (pred != nullptr)
 			{
-				// out.lock();
-				// std::cout << pthread_self() << " (in while-loop) unlocking pred: " << pred->value << std::endl;
-				// out.unlock();
-				pred->clh_lock.unlock();
+				out.lock();
+				std::cout << pthread_self() << " (in while-loop) unlocking pred: " << pred->value << std::endl;
+				out.unlock();
+				pred->clh_lock.unlock(pred_bool);
 			}
 
 			if (list_lock_locked)
 			{
-				list_lock.unlock();
-				// out.lock();
-				// std::cout << pthread_self() << " list is unlocked" << std::endl;
-				// out.unlock();
+				list_lock.unlock(list_bool);
+				out.lock();
+				std::cout << pthread_self() << " list is unlocked" << std::endl;
+				out.unlock();
 				list_lock_locked = false;
 			}
 
 			pred = succ;
+			pred_bool = succ_bool;
+
 			succ = succ->next;
+			succ_bool = nullptr; // maybe this is not null, but that cant be determined until the if statement just after this
 
 			if (succ != nullptr)
 			{
-				// out.lock();
-				// std::cout << pthread_self() << " (in while-loop) locking succ: " << succ->value << std::endl;
-				// out.unlock();
-				succ->clh_lock.lock();
+				out.lock();
+				std::cout << pthread_self() << " (in while-loop) locking succ: " << succ->value << std::endl;
+				out.unlock();
+				succ_bool = succ->clh_lock.lock();
 			}
 		}
 		// previous or list_lock is now locked (if we are at the beginning of the list)
 		// succ may be locked or is nullptr (if we are at end of list)
-		// out.lock();
-		// std::cout << pthread_self() << " succ: " << succ << std::endl;
-		// std::cout << pthread_self() << " list_locked: " << list_lock_locked << std::endl;
-		// out.unlock();
+		out.lock();
+		std::cout << pthread_self() << " succ: " << succ << std::endl;
+		std::cout << pthread_self() << " list_locked: " << list_lock_locked << std::endl;
+		out.unlock();
 
 		node_clh<T> *new_node = new node_clh<T>();
 		new_node->value = v;
@@ -1300,31 +1392,31 @@ public:
 		if (list_lock_locked)
 		{
 			// if the list_lock is still locked, we should insert the new node at the beginning of the list
-			new_node->next = first;
+			new_node->next = succ;
 			first = new_node;
 			if (new_node->next != nullptr)
 			{
-				new_node->next->clh_lock.unlock();
+				new_node->next->clh_lock.unlock(succ_bool);
 			}
-			// out.lock();
-			// std::cout << pthread_self() << " unlocking list in remove" << std::endl;
-			// out.unlock();
-			list_lock.unlock();
+			out.lock();
+			std::cout << pthread_self() << " unlocking list in remove" << std::endl;
+			out.unlock();
+			list_lock.unlock(list_bool);
 		}
 		else if (pred != nullptr && succ == nullptr)
 		{
 			// if we are at the end of the list. Now only pred is locked
 			pred->next = new_node;
 			new_node->next = nullptr;
-			pred->clh_lock.unlock();
+			pred->clh_lock.unlock(pred_bool);
 		}
 		else if (pred != nullptr && succ != nullptr)
 		{
 			// if we are in the middle of the list. Now pred and succ is locked
 			pred->next = new_node;
 			new_node->next = succ;
-			succ->clh_lock.unlock();
-			pred->clh_lock.unlock();
+			succ->clh_lock.unlock(succ_bool);
+			pred->clh_lock.unlock(pred_bool);
 		}
 		else
 		{
@@ -1337,11 +1429,15 @@ public:
 
 	void remove(T v)
 	{
+		bool *list_bool;
+		bool *pred_bool;
+		bool *curr_bool;
+
 		// out.lock();
 		// std::cout << std::endl << pthread_self() << " starting remove, trying to remove value: " << v << std::endl;
 		// std::cout << pthread_self() << " locking list in remove" << std::endl;
 		// out.unlock();
-		list_lock.lock();
+		list_bool = list_lock.lock();
 		// out.lock();
 		// std::cout << pthread_self() << " list locked in remove" << std::endl;
 		// out.unlock();
@@ -1352,14 +1448,15 @@ public:
 		if (first != nullptr)
 		{
 			// out.lock();
-			// std::cout << pthread_self() << " locking first in remove, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " locking first in remove, value: " << first->value << std::endl;
 			// out.unlock();
-			first->clh_lock.lock();
+			curr_bool = first->clh_lock.lock();
 			// out.lock();
 			// std::cout << pthread_self() << " first locked in remove value: " << first->value << std::endl;
 			// out.unlock();
 		}
-		else {
+		else
+		{
 			// out.lock();
 			// std::cout << pthread_self() << " list is empty" << std::endl;
 			// out.unlock();
@@ -1379,29 +1476,32 @@ public:
 				// out.lock();
 				// std::cout << pthread_self() << " (in while-loop) unlocking pred: " << pred->value << std::endl;
 				// out.unlock();
-				pred->clh_lock.unlock();
+				pred->clh_lock.unlock(pred_bool);
 			}
 
 			if (list_lock_locked)
 			{
 				list_lock_locked = false;
-				list_lock.unlock();
+				list_lock.unlock(list_bool);
 				// out.lock();
 				// std::cout << pthread_self() << " list is unlocked" << std::endl;
 				// out.unlock();
 			}
 
 			pred = current;
+			pred_bool = curr_bool;
+
 			current = current->next;
+			curr_bool = nullptr; // maybe this is not null, but that cant be determined until the if statement just after this
 
 			if (current != nullptr)
 			{
 				// out.lock();
 				// std::cout << pthread_self() << " (in while-loop) locking current: " << current->value << std::endl;
 				// out.unlock();
-				current->clh_lock.lock();
+				curr_bool = current->clh_lock.lock();
 			}
-		}	
+		}
 
 		// previous or list_lock is now locked (if we are at the beginning of the list)
 		// current may be locked or is nullptr (if we are at end of list)
@@ -1411,7 +1511,7 @@ public:
 
 		// out.lock();
 		// std::cout << std::endl << pthread_self() << " after while loop in remove" << std::endl;
-		// 
+		//
 		// if (current != nullptr)
 		// {
 		// 	std::cout << pthread_self() << " current->value: " << current->value << std::endl;
@@ -1422,33 +1522,40 @@ public:
 		// std::cout << pthread_self() << " list_locked: " << list_lock_locked << std::endl;
 		// out.unlock();
 
-		if(list_lock_locked){
-			if(first != nullptr){
+		if (list_lock_locked)
+		{
+			if (current != nullptr)
+			{
 				// there is a first element which we might want to remove
-				if(first->value == v){
+				if (current->value == v)
+				{
 					// we want to remove the first element
-					node_clh<T> *node_to_remove = first;
-					first = first->next;
+					node_clh<T> *node_to_remove = current;
+					first = current->next;
 					delete node_to_remove; // dont need to unlock the mutex since we are deleting the node. No other thread should have access to it.
 				}
-				else{
+				else
+				{
 					// if first value exists but is not the value we want to remove
-					first->clh_lock.unlock();
+					current->clh_lock.unlock(curr_bool);
 				}
 			}
 			// out.lock();
 			// std::cout << pthread_self() << " unlocking list in remove" << std::endl;
 			// out.unlock();
-			list_lock.unlock();
+			list_lock.unlock(list_bool);
 		}
 		// if we reach the end of the list.
-		else if (current == nullptr) {
+		else if (current == nullptr)
+		{
 			// current is not locked, but previous may be locked
-			if(pred != nullptr){
-				pred->clh_lock.unlock();
+			if (pred != nullptr)
+			{
+				pred->clh_lock.unlock(pred_bool);
 			}
 		}
-		else {
+		else
+		{
 			// we are in the middle of the list, and we might have found the element we want to remove
 			// current and previous is locked. list_lock is not locked
 			// out.lock();
@@ -1465,20 +1572,24 @@ public:
 				pred->next = current->next;
 				delete current;
 			}
-			else{
-				current->clh_lock.unlock();
+			else
+			{
+				current->clh_lock.unlock(curr_bool);
 			}
-			pred->clh_lock.unlock();
+			pred->clh_lock.unlock(pred_bool);
 		}
 	}
 
 	std::size_t count(T v)
 	{
+		bool *list_bool;
+		bool *pred_bool;
+		bool *curr_bool;
 		// out.lock();
 		// std::cout << std::endl << pthread_self() << " starting count, trying to count value: " << v << std::endl;
 		// std::cout << pthread_self() << " locking list in count" << std::endl;
 		// out.unlock();
-		list_lock.lock();
+		list_bool = list_lock.lock();
 		// out.lock();
 		// std::cout << pthread_self() << " list locked in count" << std::endl;
 		// out.unlock();
@@ -1489,14 +1600,15 @@ public:
 		if (first != nullptr)
 		{
 			// out.lock();
-			// std::cout << pthread_self() << " locking first in count, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " locking first in count, value: " << first->value << std::endl;
 			// out.unlock();
-			first->clh_lock.lock();
+			curr_bool = first->clh_lock.lock();
 			// out.lock();
-			// std::cout << pthread_self() << " first locked in count, value: " << first->value << std::endl; 
+			// std::cout << pthread_self() << " first locked in count, value: " << first->value << std::endl;
 			// out.unlock();
 		}
-		else {
+		else
+		{
 			// out.lock();
 			// std::cout << pthread_self() << " list is empty" << std::endl << std::endl;
 			// out.unlock();
@@ -1516,12 +1628,12 @@ public:
 				// out.lock();
 				// std::cout << pthread_self() << " (in while-loop) unlocking pred: " << pred->value << std::endl;
 				// out.unlock();
-				pred->clh_lock.unlock();
+				pred->clh_lock.unlock(pred_bool);
 			}
 
 			if (list_lock_locked)
 			{
-				list_lock.unlock();
+				list_lock.unlock(list_bool);
 				// out.lock();
 				// std::cout << pthread_self() << " list is unlocked" << std::endl;
 				// out.unlock();
@@ -1529,21 +1641,23 @@ public:
 			}
 
 			pred = current;
+			pred_bool = curr_bool;
 
 			current = current->next;
+			curr_bool = nullptr; // maybe this is not null, but that cant be determined until the if statement just after this
 
 			if (current != nullptr)
 			{
 				// out.lock();
 				// std::cout << pthread_self() << " (in while-loop) locking current: " << current->value << std::endl;
 				// out.unlock();
-				current->clh_lock.lock();
+				curr_bool = current->clh_lock.lock();
 			}
 		}
 
 		// out.lock();
 		// std::cout << std::endl << pthread_self() << " after while loop in count" << std::endl;
-		// 
+		//
 		// if (current != nullptr)
 		// {
 		// 	std::cout << pthread_self() << " current->value: " << current->value << std::endl;
@@ -1554,15 +1668,19 @@ public:
 		// std::cout << pthread_self() << " list_locked: " << list_lock_locked << std::endl;
 		// out.unlock();
 
-		if(current == nullptr) {
-			if(list_lock_locked) {
+		if (current == nullptr)
+		{
+			if (list_lock_locked)
+			{
 				// we never entered the while loop, list is empty or the first element is greater than or equal to the value we are looking for
-				list_lock.unlock();
+				list_lock.unlock(list_bool);
 			}
-			else if (current == nullptr) {
+			else if (current == nullptr)
+			{
 				// we have reached the end of the list
-				if(pred != nullptr){
-					pred->clh_lock.unlock();
+				if (pred != nullptr)
+				{
+					pred->clh_lock.unlock(pred_bool); 
 				}
 			}
 			return 0;
@@ -1579,43 +1697,51 @@ public:
 				// out.lock();
 				// std::cout << pthread_self() << " (in counting while-loop) unlocking pred: " << pred->value << std::endl;
 				// out.unlock();
-				pred->clh_lock.unlock();
+				pred->clh_lock.unlock(pred_bool);
 			}
 			if (list_lock_locked) // if we wanna count instances of the first element, list_lock will be locked.
 			{
-				list_lock.unlock();
+				list_lock.unlock(list_bool);
 				// out.lock();
 				// std::cout << pthread_self() << " list is unlocked" << std::endl;
 				// out.unlock();
 				list_lock_locked = false;
 			}
 			counter++;
+
 			pred = current;
-			current = current->next;
+			pred_bool = curr_bool;
+			
+			current = current->next;			
+			curr_bool = nullptr;
+
 			if (current != nullptr)
 			{
 				// out.lock();
 				// std::cout << pthread_self() << " (in counting while-loop) locking current: " << current->value << std::endl;
 				// out.unlock();
-				current->clh_lock.lock();
+				curr_bool = current->clh_lock.lock();
 			}
 		}
 
 		// unlock locks if any are still locked, as we are done counting. this is kinda dogwater but works
-		if(current != nullptr){
-			current->clh_lock.unlock();
+		if (current != nullptr)
+		{
+			current->clh_lock.unlock(curr_bool);
 		}
-		if(pred != nullptr){
-			pred->clh_lock.unlock();
+		if (pred != nullptr)
+		{
+			pred->clh_lock.unlock(pred_bool);
 		}
-		if(list_lock_locked){
-			list_lock.unlock();
+		if (list_lock_locked)
+		{
+			list_lock.unlock(list_bool);
 		}
 		return counter;
 	}
 
 private:
 	node_clh<T> *first = nullptr;
-	CLHLock out;
-	CLHLock list_lock; // this locks new threads from accesing the list
+	std::mutex out;	
+	CLHLock2 list_lock; // this locks new threads from accesing the list
 };

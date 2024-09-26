@@ -21,7 +21,7 @@ void usage(char *program)
               << "2: Fine grained locking (std::mutex)" << std::endl
               << "3: Coarse grained locking (TATAS)" << std::endl
               << "4: Fine grained locking(TATAS)" << std::endl
-              << "5: Fine grained locking with scalable queue lock algorithm (TODO: specify wether it is CLH or MCS)" << std::endl;
+              << "5: Fine grained locking with scalable queue lock algorithm (CLH)" << std::endl;
 
     exit(1);
 }
