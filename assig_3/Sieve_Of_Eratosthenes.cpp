@@ -99,24 +99,25 @@ void SequentialSieve(int *numbers, int len)
 
 void ParallelSieveOfEratosthenes(int start, int end)
 {
-    // the following print purpose is to check start and end values. They seem to be ok. 
+    // the following print purpose is to check start and end values. They seem to be ok.
     // out.lock();
     // std::cout << "Thread " << omp_get_thread_num() << " start: " << start << ". end: " << end << std::endl;
     // out.unlock();
 
-    for (int i = start; i <= end; i++)
-    {
+    for (long long i = start; i <= end; i++)
+    {        
+        long j = i * i;
         // out.lock();
-        // std::cout << "Thread " << omp_get_thread_num() << " is checking i: " << i << std::endl;
+        // std::cout << "Thread " << omp_get_thread_num() << " i: " << i << " ,j: "<< j << std::endl;
         // out.unlock();
+        // assert(j >= 0);
+        
         if (markers[i] == UNMARKED)
-        {   
-            for (int j = i * i; j < max; j += i)
+        {
+            while (j < max)
             {
-                // out.lock();
-                // std::cout << "Thread " << omp_get_thread_num() << " is checking j: " << j << std::endl;
-                // out.unlock();
                 markers[j] = MARKED;
+                j+=i;
             }
         }
     }
@@ -167,7 +168,7 @@ int main(int argc, char *argv[])
     std::cout << "starting timer!" << std::endl;
     auto start_time = std::chrono::system_clock::now();
 
-    #pragma omp parallel num_threads(num_threads)
+#pragma omp parallel num_threads(num_threads)
     {
         int thread_id = omp_get_thread_num();
         int slice_size = (max - sqrt_max) / num_threads;
