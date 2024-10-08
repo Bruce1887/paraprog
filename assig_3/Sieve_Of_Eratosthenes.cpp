@@ -23,11 +23,11 @@ void usage(char *program)
 }
 
 // This function is optimized for efficiency and clarity.
-void SequentialSieve(int *numbers, int len)
+void SequencialSive(int *numbers, int len)
 {
     bool is_prime[len] = {UNMARKED};
 
-    // Mark 0 and 1 if they are in the array
+    // mark 0 and 1 if they are in the array
     if (len > 2)
     {
         if (numbers[0] == 0)
@@ -42,7 +42,6 @@ void SequentialSieve(int *numbers, int len)
         }
     }
 
-    // Efficiently mark multiples of primes using a loop instead of nested loops
     for (int k = 2; k * k <= len; k++)
     {
         if (is_prime[k] == UNMARKED)
@@ -55,25 +54,28 @@ void SequentialSieve(int *numbers, int len)
         }
     }
 
-    // Count primes and allocate memory for them
     int num_primes = 0;
+
+    // count the number of primes to know how much memory to allocate
     for (int i = 0; i <= len; i++)
     {
         if (is_prime[i] == UNMARKED)
-        {
+        { // primes are unmarked
+            //std::cout << "primes: " << numbers[i] << std::endl;
             num_primes++;
         }
     }
     std::cout << "num_primes: " << num_primes << std::endl;
 
+    // allocate memory for the primes
     int *primes = new int[num_primes + 1]{0};
 
-    // Fill the primes array
     int primes_idx = 0;
+    // fill the primes array
     for (int i = 0; i <= len; i++)
     {
         if (is_prime[i] == UNMARKED)
-        {
+        { // PRIMES ARE UNMARKED
             primes[primes_idx] = numbers[i];
             primes_idx++;
         }
@@ -82,45 +84,23 @@ void SequentialSieve(int *numbers, int len)
     primes_to_check = primes;
 }
 
-// void ParallelSieveOfEratosthenes()
-// {
-//     #pragma omp parallel for schedule(static)
-//     for (int i = sqrt_max + 1; i < max; i++)
-//     {
-//         if (markers[i] == UNMARKED)
-//         {
-//             for (int j = i * i; j < max; j += i)
-//             {
-//                 markers[j] = MARKED;
-//             }
-//         }
-//     }
-// }
-
 void ParallelSieveOfEratosthenes(int start, int end)
 {
-    // the following print purpose is to check start and end values. They seem to be ok.
-    // out.lock();
-    // std::cout << "Thread " << omp_get_thread_num() << " start: " << start << ". end: " << end << std::endl;
-    // out.unlock();
+    // std::cout << "start: " << start << ", end: " << end << std::endl;
+    int *curr_prime = primes_to_check;
 
-    for (long long i = start; i <= end; i++)
-    {        
-        long j = i * i;
-        // out.lock();
-        // std::cout << "Thread " << omp_get_thread_num() << " i: " << i << " ,j: "<< j << std::endl;
-        // out.unlock();
-        // assert(j >= 0);
-        
-        if (markers[i] == UNMARKED)
-        {
-            while (j < max)
+        while(*curr_prime != 0){
+            // std::cout << "curr_prime: " << *curr_prime << std::endl;
+            for (int i = start; i <= end; i++)
             {
-                markers[j] = MARKED;
-                j+=i;
+                
+                if (numbers[i] % *curr_prime == 0 && numbers[i] != *curr_prime)
+                {
+                    markers[i] = MARKED;
+                }
             }
+            curr_prime++;
         }
-    }
 }
 
 int main(int argc, char *argv[])
@@ -139,30 +119,21 @@ int main(int argc, char *argv[])
 
     // Allocate memory for numbers and markers
     numbers = new int[max];
-    for (int i = 0; i < max; ++i)
-    {
-        numbers[i] = i;
-    }
     markers = new bool[max];
     for (int i = 0; i < max; ++i)
     {
+        numbers[i] = i;
         markers[i] = UNMARKED;
     }
+
     int sqrt_max = std::sqrt(max);
 
     std::cout << "sqrt_max: " << sqrt_max << std::endl;
 
     std::cout << "Fetching first primes up to sqrt_max..." << std::endl;
 
-    SequentialSieve(numbers, sqrt_max + 1);
+    SequencialSive(numbers, sqrt_max + 1);
 
-    // int prime_idx = 0;
-    // while (primes_to_check[prime_idx] != 0)
-    // {
-    //     std::cout << primes_to_check[prime_idx] << ",";
-    //     prime_idx++;
-    // }
-    // std::cout << std::endl;
     std::cout << "First primes fetched!" << std::endl;
 
     std::cout << "starting timer!" << std::endl;
@@ -187,15 +158,18 @@ int main(int argc, char *argv[])
         (std::chrono::system_clock::now() - start_time);
     // *** timing ends here ***
 
-    // std::cout << "Primes: ";
-    // for (int i = 1; i < max; i++) {
-    //     if (markers[i] == UNMARKED) {
-    //         std::cout << numbers[i] << " ";
-    //     }
-    // }
-    // std::cout << std::endl;
-
     std::cout << "Finished in " << duration.count() << " seconds (wall clock)." << std::endl;
+
+    int prime_count = 0;
+    for (int i = 0; i < max; ++i) {
+        // std::cout << markers[i] << ", ";
+        if (markers[i] == UNMARKED) {
+            prime_count++;
+        }
+    }
+    std::cout << std::endl << "Total number of primes found: " << prime_count << std::endl;
+    
+
     // cleanup
     delete[] numbers;
     delete[] markers;
