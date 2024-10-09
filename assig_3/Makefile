@@ -5,16 +5,25 @@ CFLAGS = -g -Wall -fopenmp
 
 # Target programs
 PROG1 = Sieve_Of_Eratosthenes
+PROG2 = conway
+PROG2_EDVARD = edvard
+# PROG2_EXAMPLE = Game_Of_Life # gcc $(CFLAGS) $(PROG2_EXAMPLE).c -o $(PROG2_EXAMPLE)
 
-# Sanitizer
 SANITIZER = false
 ifeq ($(SANITIZER),true)
     CFLAGS += -fsanitize=thread
 endif
 
-all: $(PROG1).cpp
+OUTPUT = true
+ifeq ($(OUTPUT),true)
+    CFLAGS += -DOUTPUT
+endif
+
+all:
 	g++ $(CCV) $(CFLAGS) $(PROG1).cpp -o $(PROG1)
+	g++ $(CCV) $(CFLAGS) $(PROG2).cpp -o $(PROG2)
+	g++ $(CCV) $(CFLAGS) $(PROG2_EDVARD).cpp -o $(PROG2_EDVARD)
 
 # Clean up built files
 clean:
-	rm -f $(TARGETS) *.o
+	rm -f $(PROG1) $(PROG2) $(PROG2_EXAMPLE) *.gif *.pgm

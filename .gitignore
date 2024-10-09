@@ -33,4 +33,4 @@ relative/path/to/dir/anotherfile
 
 # Skriv egna ignores efter här
 .vscode/
-
+edvard.cpp
