@@ -6,8 +6,8 @@ CFLAGS = -g -Wall -fopenmp
 # Target programs
 PROG1 = Sieve_Of_Eratosthenes
 PROG2 = conway
-PROG2_EDVARD = edvard
 # PROG2_EXAMPLE = Game_Of_Life # gcc $(CFLAGS) $(PROG2_EXAMPLE).c -o $(PROG2_EXAMPLE)
+PROG3 = matrix
 
 SANITIZER = false
 ifeq ($(SANITIZER),true)
@@ -22,7 +22,7 @@ endif
 all:
 	g++ $(CCV) $(CFLAGS) $(PROG1).cpp -o $(PROG1)
 	g++ $(CCV) $(CFLAGS) $(PROG2).cpp -o $(PROG2)
-	g++ $(CCV) $(CFLAGS) $(PROG2_EDVARD).cpp -o $(PROG2_EDVARD)
+	g++ $(CCV) $(CFLAGS) $(PROG3).cpp -o $(PROG3)
 
 # Clean up built files
 clean:
