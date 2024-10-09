@@ -4,14 +4,11 @@
 
 
 void matrixMultiply_i(int dim, double** a, double** b, double** c) {
-    #pragma omp parallel shared(a, b, c, dim) default(none) 
-    {
-        #pragma omp for schedule(static)
-        for (int i = 0; i < dim; i++) {
-            for (int j = 0; j < dim; j++) {
-                for (int k = 0; k < dim; k++) {
-                    c[i][j] += a[i][k] * b[k][j];
-                }
+    #pragma omp parallel for schedule(static) shared(a, b, c, dim) default(none) 
+    for (int i = 0; i < dim; i++) {
+        for (int j = 0; j < dim; j++) {
+            for (int k = 0; k < dim; k++) {
+                c[i][j] += a[i][k] * b[k][j];
             }
         }
     }
@@ -21,9 +18,11 @@ void matrixMultiply_ii(int dim, double** a, double** b, double** c) {
     #pragma omp parallel for schedule(static) collapse(2) shared(a, b, c, dim) default(none)
     for (int i = 0; i < dim; i++) {
         for (int j = 0; j < dim; j++) {
+            double sum = 0.0; 
             for (int k = 0; k < dim; k++) {
-                c[i][j] += a[i][k] * b[k][j];
+                sum += a[i][k] * b[k][j];
             }
+            c[i][j] = sum;
         }
     }
 }
@@ -31,9 +30,11 @@ void matrixMultiply_ii(int dim, double** a, double** b, double** c) {
 void matrixMultiply_iii(int dim, double** a, double** b, double** c) {
     #pragma omp parallel for schedule(static) collapse(3) shared(a, b, c, dim) default(none)
     for (int i = 0; i < dim; i++) {
-        for (int j = 0; j < dim; j++) {
-            for (int k = 0; k < dim; k++) {
-                c[i][j] += a[i][k] * b[k][j];
+        for (int k = 0; k < dim; k++) {
+            for (int j = 0; j < dim; j++) {
+                double temp = a[i][k] * b[k][j];
+                #pragma omp atomic
+                c[i][j] += temp;
             }
         }
     }
@@ -57,7 +58,6 @@ void deleteMatrix(double** matrix, int rows) {
     delete[] matrix;
 }
 
-
 int main(){
     int rows = 2048;
     int cols = 2048;
@@ -72,42 +72,33 @@ int main(){
             matrix_b[i][j] = i * cols + j + 1; 
         }
     }
-
+    //i
     std::cout << "starting timer! for i)" << std::endl;
     auto start_time_1 = std::chrono::system_clock::now();
-
     matrixMultiply_i(rows, matrix_a, matrix_b, matrix_c);
-
     std::chrono::duration<double> duration_1 =
         (std::chrono::system_clock::now() - start_time_1);
-    // *** timing ends here ***
-
     std::cout << "Finished in " << duration_1.count() << " seconds (wall clock)." << std::endl;
 
+    //ii
     std::cout << "starting timer! for ii)" << std::endl;
     auto start_time_2 = std::chrono::system_clock::now();
-
-    matrixMultiply_ii(3, matrix_a, matrix_b, matrix_c);
-
+    matrixMultiply_ii(rows, matrix_a, matrix_b, matrix_c);
     std::chrono::duration<double> duration_2 =
         (std::chrono::system_clock::now() - start_time_2);
-    // *** timing ends here ***
-
     std::cout << "Finished in " << duration_2.count() << " seconds (wall clock)." << std::endl;
     
+    //iii
     std::cout << "starting timer! for iii)" << std::endl;
     auto start_time_3 = std::chrono::system_clock::now();
-
-    matrixMultiply_ii(3, matrix_a, matrix_b, matrix_c);
-
+    matrixMultiply_iii(rows, matrix_a, matrix_b, matrix_c);
     std::chrono::duration<double> duration_3 =
         (std::chrono::system_clock::now() - start_time_3);
-    // *** timing ends here ***
-
     std::cout << "Finished in " << duration_3.count() << " seconds (wall clock)." << std::endl;
     
     deleteMatrix(matrix_a, rows);
     deleteMatrix(matrix_b, rows);
     deleteMatrix(matrix_c, rows);
+
     return 0;
 }
