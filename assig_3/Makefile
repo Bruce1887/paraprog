@@ -14,7 +14,7 @@ ifeq ($(SANITIZER),true)
     CFLAGS += -fsanitize=thread
 endif
 
-OUTPUT = true
+OUTPUT = false
 ifeq ($(OUTPUT),true)
     CFLAGS += -DOUTPUT
 endif

@@ -147,9 +147,6 @@ int main(int argc, char *argv[])
 #ifdef OUTPUT
     system(FINALIZE);
 #endif
-
-    std::cout << omp_get_thread_num() << " cleaning... " << std::endl;
-
     free_array(current, arr_size);
     free_array(previous, arr_size);
 
