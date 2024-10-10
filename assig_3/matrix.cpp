@@ -3,6 +3,8 @@
 #include <iostream>
 #include <cassert>
 #include <cmath>
+#include <mutex>
+#include <vector>
 
 void matrixMultiply_i(int dim, int **a, int **b, int **c)
 {
@@ -38,22 +40,18 @@ void matrixMultiply_ii(int dim, int **a, int **b, int **c)
 
 void matrixMultiply_iii(int dim, int **a, int **b, int **c)
 {
-    // std::cout << "hello from matrixMultiply_iii" << std::endl;
-#pragma omp parallel for schedule(dynamic) collapse(3) shared(a, b, c, dim)
+
+#pragma omp parallel for schedule(static) collapse(3) shared(a, b, c, dim)
     for (int i = 0; i < dim; i++)
     {
         for (int j = 0; j < dim; j++)
         {
             for (int k = 0; k < dim; k++)
             {
-                // std::cout << "matrixMultiply_iii, third for loop" << std::endl;
-                // std::cout << "i: " << i << " j: " << j << " k: " << k << std::endl;
-                int temp = a[i][j] * b[j][k];
-                c[i][k] += temp; // data dependency, cant be parallelized
+                c[i][j] += a[i][k] * b[k][j];
             }
         }
     }
-    // std::cout << "end of matrixMultiply_iii" << std::endl;
 }
 
 // create matrix
