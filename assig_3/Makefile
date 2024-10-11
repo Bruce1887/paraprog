@@ -1,7 +1,7 @@
 # Compiler and flags
 CC = g++
 CCV = -std=c++11
-CFLAGS = -g -Wall -fopenmp
+CFLAGS = -Wall -fopenmp
 
 # Target programs
 PROG1 = Sieve_Of_Eratosthenes
