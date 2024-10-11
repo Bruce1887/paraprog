@@ -13,14 +13,13 @@ std::vector<float> *xcol;
 
 void initialise()
 {
-    std::vector<std::vector<float>> nested_array(N, std::vector<float>(N)); 
+    std::vector<std::vector<float>> nested_array(N, std::vector<float>(N));
     A = nested_array;
 
     // Allocate memory for the right-hand side vector and solution vectors
     b = new std::vector<float>(N);
     xrow = new std::vector<float>(N);
     xcol = new std::vector<float>(N);
-    
 
     // Initialize an upper triangular matrix A and right-hand side vector b
     for (int i = 0; i < N; i++)
@@ -33,8 +32,8 @@ void initialise()
                 A[i][j] = 0.0; // Elements below the diagonal
             else
                 A[i][j] = static_cast<float>(2);
-                // A[i][j] = static_cast<float>(1 + rand() * % 4); // Random values from 1 to 4
-                // A[i][j] = static_cast<float>(2 + (rand() * 2) % 4); // Randomly 2 or 4
+            // A[i][j] = static_cast<float>(1 + rand() * % 4); // Random values from 1 to 4
+            // A[i][j] = static_cast<float>(2 + (rand() * 2) % 4); // Randomly 2 or 4
         }
     }
 }
@@ -59,7 +58,7 @@ void row_oriented_back_substitution(std::vector<std::vector<float>> *A, std::vec
     }
 }
 
-void column_oriented_back_substitution(std::vector<std::vector<float>> *A, std::vector<float> *b, std::vector<float>  *x, int N)
+void column_oriented_back_substitution(std::vector<std::vector<float>> *A, std::vector<float> *b, std::vector<float> *x, int N)
 {
     int row, col;
 #pragma omp parallel for schedule(static)
@@ -69,7 +68,7 @@ void column_oriented_back_substitution(std::vector<std::vector<float>> *A, std::
     {
 #pragma omp single
         (*x)[col] /= (*A)[col][col];
-#pragma omp parallel for schedule(static)
+        #pragma omp parallel for schedule(static)
         for (row = 0; row < col; row++)
             (*x)[row] -= (*A)[row][col] * (*x)[col];
     }
@@ -91,28 +90,29 @@ int main(int argc, char **argv)
     std::cout << "System of equations initialised." << std::endl;
 
     std::cout << std::endl;
-     //variables for timing
-	float row_time;
+    // variables for timing
+    float row_time;
     float col_time;
-    struct timeval row_ts,row_tf;
-	struct timeval col_ts,col_tf;
-
+    struct timeval row_ts, row_tf;
+    struct timeval col_ts, col_tf;
 
     std::cout << "Starting column-oriented approach timer..." << std::endl;
-    gettimeofday(&col_ts,NULL);
+    gettimeofday(&col_ts, NULL);
     column_oriented_back_substitution(&A, b, xcol, N);
-    gettimeofday(&col_tf,NULL);
-	col_time = (col_tf.tv_sec-col_ts.tv_sec)+(col_tf.tv_usec-col_ts.tv_usec)*0.000001;
-	printf("Column-oriented time: %lf\n", col_time);
+    gettimeofday(&col_tf, NULL);
+    col_time = (col_tf.tv_sec - col_ts.tv_sec) + (col_tf.tv_usec - col_ts.tv_usec) * 0.000001;
+    printf("Column-oriented time: %lf\n", col_time);
 
     std::cout << std::endl;
 
+    exit(EXIT_SUCCESS);
+
     std::cout << "Starting row-oriented approach timer..." << std::endl;
-    gettimeofday(&row_ts,NULL);
+    gettimeofday(&row_ts, NULL);
     row_oriented_back_substitution(&A, b, xrow, N);
-    gettimeofday(&row_tf,NULL);
-	row_time = (row_tf.tv_sec-row_ts.tv_sec)+(row_tf.tv_usec-row_ts.tv_usec)*0.000001;
-	printf("Row-oriented time: %lf\n", row_time);
+    gettimeofday(&row_tf, NULL);
+    row_time = (row_tf.tv_sec - row_ts.tv_sec) + (row_tf.tv_usec - row_ts.tv_usec) * 0.000001;
+    printf("Row-oriented time: %lf\n", row_time);
 
     std::cout << std::endl;
 
