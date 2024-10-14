@@ -72,7 +72,7 @@ void row_oriented_back_substitution_parallel(std::vector<std::vector<float>> *A,
         (*x)[row] = (*b)[row];  
         float temp = 0.0f;      
 
-        #pragma omp parallel for private(col) reduction(-:temp) schedule(dynamic)
+        #pragma omp parallel for private(col) reduction(-:temp) schedule(dynamicd)
         for (col = row + 1; col < N; col++)
         {
             temp -= (*A)[row][col] * (*x)[col];
