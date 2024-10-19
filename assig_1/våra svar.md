@@ -31,9 +31,10 @@ threads per core is 2.
 
 <span style="font-size: 24px;">**b**</span>
 
+![image](Excercise4.png)
+
 
 # Excercise 5
-**TODO: add the picture here once it is done.**
 
 <span style="font-size: 24px;">**a**</span>
 
@@ -78,7 +79,7 @@ threads per core is 2.
 
 <span style="font-size: 24px;">**b**</span>
 
-**TODO: Mata in bild här**
+![image](walltimevssize.png)
 
 <span style="font-size: 24px;">**c**</span>
 
@@ -96,3 +97,4 @@ It appears that deadlocks occur eventually no matter the amount of philosophers 
 This is occurs when all philosophers are waiting for their right fork to be vacant and are holding their left fork (i think), meaning that everone is waiting for the philosopher to their right to drop their fork. A deadlock occurs four conditions are necessary: mutual exclusion, resource holding, non-preemption and circular wait. Inorder to brake a deadlock one of these conditions must be negated.
 
 <span style="font-size: 24px;">**b**</span>
+see the provided source code in "dining.cpp". basically the change we made was to atomically check if bot lef and right fork are vacant and if and only if they are take both forks. this was all done atomically.
